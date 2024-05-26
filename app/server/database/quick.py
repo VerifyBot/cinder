@@ -3,7 +3,7 @@ from sqlite3 import Connection, Row
 
 def load_cars(db: Connection, query: str) -> list[dict]:
   """
-  Loadthe cars from the database, and return a list of dicts.
+  Load the cars from the database, and return a list of dicts.
   """
 
   cars: list[Row] = db.execute(query).fetchall()

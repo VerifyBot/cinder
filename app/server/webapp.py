@@ -96,7 +96,7 @@ if __name__ == '__main__':
   parser.add_argument("--host", default="0.0.0.0", help="The host to bind to")
   parser.add_argument("--port", default=5000, type=int, help="The port to bind to")
   parser.add_argument("--debug", action="store_true", help="Enable debug mode")
-  parser.add_argument("--secure", action="store_true", default=False, help="Enable public/private key encryption")
+  parser.add_argument("--secure", action="store_true", default=True, help="Enable public/private key encryption")
   parser.add_argument("--config", default="config.ini", help="The path to the config file")
   args = parser.parse_args()
 

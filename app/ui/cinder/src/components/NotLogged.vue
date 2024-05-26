@@ -18,6 +18,11 @@
 
       <div class="py-15"></div>
 
+      <!-- <v-row class="d-flex align-center justify-center mb-5 flex-column">
+        <div><v-btn color="pink" block variant="outline" @click="sendTest">test</v-btn></div>
+        <div><u>Result</u>: <b>{{ testResult }}</b></div>
+      </v-row> -->
+
       <!-- log in -->
       <v-row class="d-flex align-center justify-center">
         <v-btn prepend-icon="mdi-key-chain" style="width: 400px;font-family: 'Bree Serif'" variant="tonal" size="x-large" color="green"
@@ -51,6 +56,7 @@
 export default {
   data() {
     return {
+      testResult: null,
       canvas: null,
       ctx: null,
       currentPlayer: 'O',
@@ -71,6 +77,10 @@ export default {
 
   },
   methods: {
+    async sendTest() {
+      const js = await this.api.post('/reverse', { text: window.prompt("what?")});
+      this.testResult = js.data.reversed;
+    },
 
     drawBoard() {
       // Draw the game board with rounded lines

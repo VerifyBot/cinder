@@ -83,8 +83,6 @@ def login(
   A user can log in with either their username or email.
   """
 
-  # print(f'REACHED! {username=} {email=} {password=}')
-
   # check if username / email already exists
   if not does_user_exist(ctx, username, email):
     raise errors.BadParameterError("AccountMissing", "an account with that username or email does not exist")
@@ -305,6 +303,7 @@ def recommendation_reset(ctx: router.Context):
 
   return
 
+
 @router.post('/clearChats')
 @checks.authenticated()
 def clear_chats(ctx: router.Context):
@@ -316,3 +315,11 @@ def clear_chats(ctx: router.Context):
   ctx.db.execute(query, (ctx.user.id,))
 
   return
+
+@router.post('/reverse')
+def reverse(ctx: router.Context, text: str) -> dict:
+  """
+  Reverse the provided string.
+  """
+  print(f'On reverse({text})')
+  return dict(reversed=text[::-1])

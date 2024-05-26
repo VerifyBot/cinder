@@ -10,12 +10,14 @@
   },
   "dependencies": {
     "@mdi/font": "7.0.96",
+    "big-integer": "^1.6.52",
     "core-js": "^3.29.0",
     "crypto-js": "^4.2.0",
     "elliptic": "^6.5.4",
     "node-rsa": "^1.1.1",
     "roboto-fontface": "*",
     "vue": "^3.2.0",
+    "vue-cryptojs": "^2.4.5",
     "vue-router": "^4.0.0",
     "vuetify": "^3.0.0"
   },

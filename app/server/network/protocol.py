@@ -10,7 +10,7 @@ class Request:
   method: str
   path: str
   headers: dict
-  data: dict
+  data: dict | str
   params: dict
 
   @classmethod
@@ -49,6 +49,11 @@ class Request:
         continue
 
       if find_next == 'data':
+        if headers.get('X-Client-Public-Key'):  # secure
+            data = ln
+            continue
+
+
         if headers['Content-Type'] == 'application/json':
           data = json.loads(ln)
           continue
@@ -82,7 +87,7 @@ class Response:
     resp_headers = [
       f"HTTP/1.1 {self.status} {status_reason}",
       "Content-Type: application/json",
-      f"Content-Length: {len(json.dumps(self.data))}",
+      f"Content-Length: {len(json.dumps(self.data)) if isinstance(self.data, dict) else len(self.data)}",
       f'Date: {datetime.datetime.now().strftime("%a, %d %b %Y %H:%M:%S %Z")} GMT+{datetime.datetime.now().astimezone().utcoffset().seconds // 3600}',
       "Server: Cinder",
       "Connection: close",

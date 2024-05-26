@@ -9,9 +9,9 @@ class BaseRecommendationService(abc.ABC):
   Base class for recommendation services
 
   Required implementations:
-    - __init__ (accept cars and db)
-    - update (accept a context, car_id, like)
-    - next (accept a context)
+    - __init__ (accepts cars and db)
+    - update (accepts a context, car_id, like)
+    - next (accepts a context)
   """
 
   @abc.abstractmethod

@@ -15,62 +15,86 @@ import { registerPlugins } from "@/plugins";
 
 import $ from "@/jquery.min.js";
 import notify from "@/notify.min.js";
-
-// import CryptoJS from "crypto-js";
-// import { ec } from "elliptic";
-// import NodeRSA from "node-rsa";
+import CryptoJS from "crypto-js";
 
 const app = createApp(App);
+
+class DiffieHellman {
+  G;
+  P;
+  privateKey;
+
+  constructor(g, p) {
+    this.G = g;
+    this.P = p;
+    this.privateKey = this.generatePrivateKey();
+  }
+
+  generatePrivateKey() {
+    return Math.floor(Math.random() * 10) + 10;
+  }
+
+  generatePublicKey() {
+    return Math.pow(this.G, this.privateKey) % this.P;
+  }
+
+  generateSharedKey(otherPublicKey) {
+    console.log(
+      `Server Key: ${otherPublicKey}, Client Key: ${this.privateKey}, p: ${this.P}`
+    );
+    return Math.pow(otherPublicKey, this.privateKey) % this.P;
+  }
+}
+
+async function sha256(message) {
+  // encode as UTF-8
+  const msgBuffer = new TextEncoder().encode(message);                    
+
+  // hash the message
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+
+  // convert ArrayBuffer to Array
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+
+  // convert bytes to hex string                  
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
 
 class ApiClient {
   constructor() {
     this.baseUrl = "http://127.0.0.1:5000";
 
-    this.handshake_state = 0;
-
     this.secure = false;
     this.publicKey = null;
-    this.privateKey = null;
     this.serverPublicKey = null;
+    this.sharedKey = null;
 
-    this.secureToken = null;
-
-    // this.doHandshake();
+    this.diffie = new DiffieHellman(2, 9_007_199_254_740_881);
+    this.duringHandshake = true;
+    this.doHandshake();
   }
 
-  // async doHandshake() {
-  //   let resp;
+  async doHandshake() {
+    this.publicKey = this.diffie.generatePublicKey();
 
-  //   // valid random rsa private and public keys
-  //   // const kp = curve.genKeyPair();
-  //   this.privateKey = new NodeRSA({ b: 2048 });
-  //   this.publicKey = this.privateKey.exportKey("private");
+    const js = await this.post("/handshake", { public_key: this.publicKey });
 
-  //   this.handshake_state = 0.5;  // send pk header
+    // no encryption
+    if (!js.ok) {
+      this.secure = false;
+      return;
+    }
 
-  //   resp = await this.post("/handshake_request", {
-  //     public_key: this.publicKey,
-  //   });
-  //   this.secure = resp.data.handshake_required;
+    this.secure = true;
 
-  //   if (!this.secure) return; // no need to do anything else
-
-  //   this.handshake_state = 1;
-
-  //   console.log(`Sending: ${btoa(this.publicKey)}`);
-  //   resp = await this.post("/handshake", { public_key: btoa(this.publicKey) });
-
-  //   this.serverPublicKey = atob(resp.data.public_key);
-
-  //   let encryptedToken = atob(resp.data.token);
-  //   this.secureToken = CryptoJS.AES.decrypt(
-  //     encryptedToken,
-  //     this.privateKey
-  //   ).toString(CryptoJS.enc.Utf8);
-
-  //   this.secureToken = encryptedToken;
-  //   this.handshake_state = 2;
-  // }
+    console.log(`pk: ${js.data.server_pk}`)
+    const sharedKey = this.diffie.generateSharedKey(Number(js.data.server_pk))
+    console.log(`sk: ${sharedKey}`)
+    this.sharedKey = await sha256(sharedKey);
+    console.log(`Shared key: ${this.sharedKey}`)
+    this.duringHandshake = false;
+  }
 
   maybeAuth() {
     if (localStorage.getItem("token")) {
@@ -82,22 +106,28 @@ class ApiClient {
   }
 
   encryptData(data) {
-    if (!this.secure || this.handshake_state !== 2) return data;
+    if (!this.secure) return data;
 
-    return btoa(CryptoJS.AES.encrypt(data, this.secureToken).toString());
+    return CryptoJS.AES.encrypt(data, CryptoJS.enc.Hex.parse(this.sharedKey), {
+      mode: CryptoJS.mode.ECB,
+    }).ciphertext.toString(CryptoJS.enc.Hex);
   }
 
   decryptData(data) {
-    if (!this.secure || this.handshake_state !== 2) return data;
+    if (!this.secure) return data;
 
-    return atob(
-      CryptoJS.AES.decrypt(data, this.secureToken).toString(CryptoJS.enc.Utf8)
-    );
+    return CryptoJS.AES.decrypt(
+      CryptoJS.enc.Hex.parse(data).toString(CryptoJS.enc.Base64),
+      CryptoJS.enc.Hex.parse(this.sharedKey),
+      {
+        mode: CryptoJS.mode.ECB,
+      }
+    ).toString(CryptoJS.enc.Utf8);
   }
 
-  maybeSecureHeaders() {
+  maybeSecureHeaders(url) {
     console.log(`s=${this.secure} pk=${this.publicKey}`);
-    if ((this.secure && this.publicKey) || this.handshake_state === 0.5) {
+    if ((this.secure && this.publicKey) || url == '/handshake') {
       console.log("sending public key header");
       return {
         "X-Client-Public-Key": this.publicKey,
@@ -115,6 +145,11 @@ class ApiClient {
   }
 
   async get(url, options = {}) {
+    while (this.duringHandshake && url != '/handshake') {
+      console.log('waiting..')
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
     let js;
 
     try {
@@ -136,7 +171,7 @@ class ApiClient {
       }
     }
 
-    if (js.error) {
+    if (js.error && url != '/handshake') {
       if (!this.simpleErrorHandling(js)) {
         notify(`⚠️ ${js.error}: ${js.message}`, {
           position: "bottom left",
@@ -150,6 +185,11 @@ class ApiClient {
   }
 
   async post(url, data, options = {}) {
+    while (this.duringHandshake && url != '/handshake') {
+      console.log('waiting..')
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
     let js;
 
     try {
@@ -159,7 +199,7 @@ class ApiClient {
         headers: {
           "Content-Type": "application/json",
           ...this.maybeAuth(),
-          ...this.maybeSecureHeaders(),
+          ...this.maybeSecureHeaders(url),
         },
         ...options,
       });
@@ -175,7 +215,7 @@ class ApiClient {
       }
     }
 
-    if (js.error) {
+    if (js.error && url != '/handshake') {
       if (!this.simpleErrorHandling(js)) {
         notify(`⚠️ ${js.error}: ${js.message}`, {
           position: "bottom left",
