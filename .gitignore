@@ -9,6 +9,7 @@ package-lock.json
 TODO.md
 dump.txt
 *.db
+process/data-preparation/scraper/images/*.png
 
 ### Node ###
 # Logs
