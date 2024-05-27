@@ -1,8 +1,3 @@
-"""
-CREDIT: YOAV LEVI
-https://github.com/Shm00lik/PUTON-Server/
-"""
-
 import random
 
 
